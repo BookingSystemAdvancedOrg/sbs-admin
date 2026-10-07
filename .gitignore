@@ -1,0 +1,36 @@
+node_modules/
+dist/
+.env.local
+.env.*.local
+__pycache__/
+.pytest_cache/
+*.pyc
+.DS_Store
+
+# env files (keep the template)
+.env
+.env.*
+!.env.example
+
+# python
+.venv/
+venv/
+.coverage
+htmlcov/
+
+# node / build
+coverage/
+*.log
+.vite/
+
+# infra / local secrets (never commit)
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+*.pem
+*.key
+
+# editors
+.idea/
+.vscode/
