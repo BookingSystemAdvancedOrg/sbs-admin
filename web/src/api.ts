@@ -1,6 +1,6 @@
-import { accessToken, signIn } from "./auth";
+import { accessToken, notifySignedOut, signOut } from "./auth";
 import type {
-  Location, LocationInput, NewTenantInput, Plan, Tenant, TenantDetail, TenantSummary, TenantUser,
+  Location, LocationInput, NewTenantInput, OperatorAccount, Plan, Tenant, TenantDetail, TenantSummary, TenantUser,
 } from "./types";
 
 export class ApiError extends Error {
@@ -25,7 +25,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   if (res.status === 401) {
-    await signIn();
+    // token rejected (revoked, account disabled/deleted) - back to the login page
+    await signOut().catch(() => undefined);
+    notifySignedOut();
     throw new ApiError(401, "unauthorized", "Signed out");
   }
   const text = await res.text();
@@ -68,4 +70,13 @@ export const api = {
     request("DELETE", `${t(id)}/domains/${encodeURIComponent(domain)}`),
   stripeLink: (id: string) => request<{ url: string; expiresAt?: number }>("POST", `${t(id)}/stripe/account-link`, {}),
   stripeSync: (id: string) => request("POST", `${t(id)}/stripe/sync`, {}),
+
+  operators: () => request<{ operators: OperatorAccount[] }>("GET", "/platform/operators").then((r) => r.operators),
+  createOperator: (email: string, name: string) =>
+    request<{ operator: OperatorAccount }>("POST", "/platform/operators", { email, name }),
+  updateOperator: (username: string, patch: { name?: string; enabled?: boolean }) =>
+    request<{ operator: OperatorAccount }>("PATCH", `/platform/operators/${encodeURIComponent(username)}`, patch),
+  deleteOperator: (username: string) => request("DELETE", `/platform/operators/${encodeURIComponent(username)}`),
+  resendInvite: (username: string) =>
+    request("POST", `/platform/operators/${encodeURIComponent(username)}/resend-invite`, {}),
 };

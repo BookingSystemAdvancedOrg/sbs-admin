@@ -2,14 +2,14 @@
 of the operator console (sbs-admin).
 
 API Gateway has already verified the caller: an access token from the
-OPERATOR user pool carrying the platform/admin scope. This handler adds a
-second check (cognito:groups contains platform_admin), records who did what
-(audit rows) and dispatches on routeKey."""
+OPERATOR user pool, issued to the sbs-admin app client. This handler is the
+authorization check (cognito:groups must contain platform_admin), records
+who did what (audit rows) and dispatches on routeKey."""
 
 import json
 from dataclasses import dataclass, field
 
-from . import domains, locations, stripe_connect, tenants, users
+from . import domains, locations, operators, stripe_connect, tenants, users
 from .core import ApiError, error_body, log, parse_body, respond
 
 ROUTES = {
@@ -33,6 +33,11 @@ ROUTES = {
     "DELETE /platform/tenants/{tenantId}/domains/{domain}": domains.remove_domain,
     "POST /platform/tenants/{tenantId}/stripe/account-link": stripe_connect.account_link,
     "POST /platform/tenants/{tenantId}/stripe/sync": stripe_connect.sync_account,
+    "GET /platform/operators": operators.list_operators,
+    "POST /platform/operators": operators.create_operator,
+    "PATCH /platform/operators/{username}": operators.update_operator,
+    "DELETE /platform/operators/{username}": operators.delete_operator,
+    "POST /platform/operators/{username}/resend-invite": operators.resend_invite,
 }
 
 OPERATOR_GROUP = "platform_admin"

@@ -139,3 +139,14 @@ export interface NewTenantInput {
   overrides?: { maxLocations?: number };
   locations: LocationInput[];
 }
+
+export interface OperatorAccount {
+  username: string;
+  email: string;
+  name: string;
+  /** FORCE_CHANGE_PASSWORD = invited, hasn't signed in yet */
+  status: string;
+  enabled: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
