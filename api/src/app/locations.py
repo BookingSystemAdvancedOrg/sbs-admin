@@ -44,7 +44,8 @@ def create_location(req) -> tuple[int, dict]:
         raise ApiError(409, "invalid_status", f"The tenant is {profile['status']}", currentStatus=profile["status"])
     location_id, now = new_id(), now_iso()
     item = {"PK": f"TENANT#{tenant_id}", "SK": f"LOCATION#{location_id}", "tenantId": tenant_id,
-            "locationId": location_id, "createdAt": now, "createdBy": req.actor, **fields}
+            "locationId": location_id, "createdAt": now, "createdBy": req.actor,
+            **v.app_location_fields(fields), **fields}
     try:
         client("dynamodb").transact_write_items(TransactItems=[
             {"Update": {
@@ -92,6 +93,14 @@ def update_location(req) -> tuple[int, dict]:
         else:
             sets.append(f"#f{i} = :v{i}")
             values[f":v{i}"] = to_ddb_value(fields[key])
+    if "phone" in req.body:  # the app reads the E.164 copy
+        names["#pn"] = "phoneNumber"
+        number = v.e164(fields.get("phone"))
+        if number:
+            sets.append("#pn = :pn")
+            values[":pn"] = {"S": number}
+        else:
+            removes.append("#pn")
     if not sets and not removes:
         raise ApiError(400, "validation_failed", "Nothing to update")
     sets += ["updatedAt = :n", "updatedBy = :b"]

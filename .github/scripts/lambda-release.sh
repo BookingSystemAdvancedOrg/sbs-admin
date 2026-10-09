@@ -3,11 +3,15 @@
 #
 #   ci/lambda-release.sh --function NAME --app CODEDEPLOY_APP --topic ALERT_TOPIC_ARN \
 #                        --environment dev|prod [--image REPO_URI:TAG] [--source TEXT]
+#                        [--notify always|failure]
 #                        [--to-version N]
 #
 #   --image   new image to release (app pipelines). Omit to release whatever
 #             is on $LATEST now (this repo's pipeline, after an apply changed
 #             a function's configuration).
+#   --notify  always (default): email every result. failure: email only
+#             rollbacks/failures - for pipelines releasing many functions at
+#             once, which send one summary email themselves.
 #   --source  free text recorded on the version and in the email,
 #             e.g. "application@1a2b3c4".
 #   --to-version
@@ -29,7 +33,7 @@
 # copy it here unchanged.
 set -euo pipefail
 
-FN="" APP="" TOPIC="" ENVIRONMENT="" IMAGE="" SOURCE="" TO_VERSION=""
+FN="" APP="" TOPIC="" ENVIRONMENT="" IMAGE="" SOURCE="" TO_VERSION="" NOTIFY="always"
 ALIAS="live"
 TIMEOUT_SECONDS="${RELEASE_TIMEOUT_SECONDS:-1800}"
 
@@ -42,6 +46,7 @@ while [ $# -gt 0 ]; do
     --image) IMAGE="$2"; shift 2 ;;
     --source) SOURCE="$2"; shift 2 ;;
     --to-version) TO_VERSION="$2"; shift 2 ;;
+    --notify) NOTIFY="$2"; shift 2 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -49,6 +54,7 @@ done
 [ -n "$APP" ] || { echo "missing --app" >&2; exit 2; }
 [ -n "$TOPIC" ] || { echo "missing --topic" >&2; exit 2; }
 [ -n "$ENVIRONMENT" ] || { echo "missing --environment" >&2; exit 2; }
+case "$NOTIFY" in always|failure) ;; *) echo "--notify must be always or failure" >&2; exit 2 ;; esac
 
 log() { echo "[$FN] $*"; }
 
@@ -160,6 +166,7 @@ fi
 
 if [ "$status" = "Succeeded" ]; then
   log "SUCCESS - live -> version $green"
+  [ "$NOTIFY" = always ] && \
   notify "[$ENVIRONMENT] SUCCESS: $FN released (v$green)" \
 "$FN ($ENVIRONMENT): the release finished - 100% of traffic is on the new version.
 

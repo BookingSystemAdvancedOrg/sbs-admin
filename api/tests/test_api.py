@@ -302,3 +302,32 @@ def test_stripe_request_encodes_v1_and_v2(monkeypatch):
     assert v2.full_url == "https://api.stripe.com/v2/core/account_links"
     assert v2.headers["Content-type"] == "application/json"
     assert _json.loads(v2.data) == {"use_case": {"type": "account_onboarding"}}
+
+
+def test_locations_meet_the_admin_app_contract(aws, tenant):
+    """The application backend refuses location rows without timezone,
+    opening hours, booking duration and grace period - every location the
+    operator creates has them (closed until the owner sets hours), and the
+    phone is also stored in E.164 as phoneNumber."""
+    from app import validation as v
+    p = {"tenantId": tenant}
+    (loc,) = call("GET /platform/tenants/{tenantId}/locations", p)[1]["locations"]
+    assert loc["timezone"] == "Europe/Stockholm"
+    assert loc["businessHours"] == {d: [] for d in v.WEEKDAYS}
+    assert loc["bookingDurationHours"] == 2 and loc["gracePeriodHours"] == 0
+    assert loc["phoneNumber"] == "+46812345"
+
+    status, body = call("PATCH /platform/tenants/{tenantId}/locations/{locationId}",
+                        {**p, "locationId": loc["locationId"]}, {"phone": "070-123 45 67"})
+    assert status == 200 and body["location"]["phoneNumber"] == "+46701234567"
+    status, body = call("PATCH /platform/tenants/{tenantId}/locations/{locationId}",
+                        {**p, "locationId": loc["locationId"]}, {"phone": ""})
+    assert status == 200 and "phoneNumber" not in body["location"]
+
+
+def test_e164():
+    from app.validation import e164
+    assert e164("+46 8 123 45") == "+46812345"
+    assert e164("0046701234567") == "+46701234567"
+    assert e164("070-123 45 67") == "+46701234567"
+    assert e164("12") is None and e164(None) is None
