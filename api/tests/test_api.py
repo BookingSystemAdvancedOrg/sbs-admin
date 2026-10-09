@@ -262,16 +262,43 @@ def test_stripe_link_and_sync(aws, tenant, monkeypatch):
 
     def fake(method, path, params=None):
         seen.append((method, path, params))
-        if path == "/account_links":
-            return {"url": "https://connect.stripe.com/setup/x", "expires_at": 1}
+        if path == "/v2/core/account_links":
+            return {"url": "https://connect.stripe.com/setup/x", "expires_at": "2026-10-09T10:00:00.000Z"}
         return {"charges_enabled": True, "payouts_enabled": False, "details_submitted": True,
                 "requirements": {"currently_due": ["external_account"]}}
 
     monkeypatch.setattr(stripe_connect, "stripe_request", fake)
     status, body = call("POST /platform/tenants/{tenantId}/stripe/account-link", p)
     assert status == 200 and body["url"].startswith("https://connect.stripe.com")
-    assert seen[0][2]["return_url"] == f"https://ops.example.se/tenants/{tenant}?stripe=return"
+    onboarding = seen[0][2]["use_case"]["account_onboarding"]
+    assert seen[0][2]["account"] == "acct_123456" and onboarding["configurations"] == ["merchant"]
+    assert onboarding["return_url"] == f"https://ops.example.se/tenants/{tenant}?stripe=return"
     status, body = call("POST /platform/tenants/{tenantId}/stripe/sync", p)
     assert status == 200 and body["stripe"]["chargesEnabled"] is True
     t = call("GET /platform/tenants/{tenantId}", p)[1]["tenant"]
     assert t["stripe"]["requirementsDue"] == ["external_account"]
+
+
+def test_stripe_request_encodes_v1_and_v2(monkeypatch):
+    """v1 paths go form-encoded to /v1, /v2/ paths go as JSON - Stripe
+    rejects new connected accounts on v1, so account links use v2."""
+    import io
+    import json as _json
+
+    from app import stripe_connect
+    monkeypatch.setattr(stripe_connect, "_api_key", lambda: "sk_test_x")
+    sent = []
+
+    def fake_urlopen(req, timeout):
+        sent.append(req)
+        return io.BytesIO(b'{"id": "x"}')
+
+    monkeypatch.setattr(stripe_connect.urllib.request, "urlopen", fake_urlopen)
+    stripe_connect.stripe_request("POST", "/terminal/locations", {"display_name": "A+B"}, account="acct_1")
+    stripe_connect.stripe_request("POST", "/v2/core/account_links", {"use_case": {"type": "account_onboarding"}})
+    v1, v2 = sent
+    assert v1.full_url == "https://api.stripe.com/v1/terminal/locations"
+    assert v1.data == b"display_name=A%2BB" and v1.headers["Stripe-account"] == "acct_1"
+    assert v2.full_url == "https://api.stripe.com/v2/core/account_links"
+    assert v2.headers["Content-type"] == "application/json"
+    assert _json.loads(v2.data) == {"use_case": {"type": "account_onboarding"}}

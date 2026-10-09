@@ -1,6 +1,6 @@
 import { accessToken, notifySignedOut, signOut } from "./auth";
 import type {
-  Location, LocationInput, NewTenantInput, OperatorAccount, Plan, Tenant, TenantDetail, TenantSummary, TenantUser,
+  Location, LocationInput, NewTenantInput, OperatorAccount, TerminalAddress, TerminalReader, TerminalSetup, TerminalState, Plan, Tenant, TenantDetail, TenantSummary, TenantUser,
 } from "./types";
 
 export class ApiError extends Error {
@@ -68,8 +68,20 @@ export const api = {
       "POST", `${t(id)}/domains`, { domain, makePrimary }),
   removeDomain: (id: string, domain: string) =>
     request("DELETE", `${t(id)}/domains/${encodeURIComponent(domain)}`),
-  stripeLink: (id: string) => request<{ url: string; expiresAt?: number }>("POST", `${t(id)}/stripe/account-link`, {}),
+  stripeLink: (id: string) => request<{ url: string; expiresAt?: string }>("POST", `${t(id)}/stripe/account-link`, {}),
   stripeSync: (id: string) => request("POST", `${t(id)}/stripe/sync`, {}),
+
+  terminal: (id: string, locationId: string) =>
+    request<TerminalState>("GET", `${t(id)}/locations/${encodeURIComponent(locationId)}/terminal`),
+  enableTerminal: (id: string, locationId: string, body: TerminalAddress & { displayName?: string }) =>
+    request<{ terminal: TerminalSetup }>("POST", `${t(id)}/locations/${encodeURIComponent(locationId)}/terminal`, body),
+  updateTerminal: (id: string, locationId: string, body: Partial<TerminalAddress> & { displayName?: string }) =>
+    request<{ terminal: TerminalSetup }>("PATCH", `${t(id)}/locations/${encodeURIComponent(locationId)}/terminal`, body),
+  registerReader: (id: string, locationId: string, registrationCode: string, label: string) =>
+    request<{ reader: TerminalReader }>("POST", `${t(id)}/locations/${encodeURIComponent(locationId)}/terminal/readers`,
+                                        { registrationCode, label }),
+  removeReader: (id: string, locationId: string, readerId: string) =>
+    request("DELETE", `${t(id)}/locations/${encodeURIComponent(locationId)}/terminal/readers/${encodeURIComponent(readerId)}`),
 
   operators: () => request<{ operators: OperatorAccount[] }>("GET", "/platform/operators").then((r) => r.operators),
   createOperator: (email: string, name: string) =>

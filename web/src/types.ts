@@ -79,7 +79,40 @@ export interface Location {
   phone?: string;
   email?: string;
   stripeAccountId?: string;
+  terminal?: TerminalSetup;
   createdAt?: string;
+}
+
+export interface TerminalAddress {
+  line1: string;
+  postalCode: string;
+  city: string;
+  country?: string;
+}
+
+/** Stripe Terminal location of a restaurant location (on the restaurant's Stripe account). */
+export interface TerminalSetup {
+  locationId: string;
+  accountId: string;
+  displayName: string;
+  address: TerminalAddress;
+  enabledAt?: string;
+}
+
+export interface TerminalReader {
+  id: string;
+  label: string;
+  device_type: string;
+  status: "online" | "offline" | null;
+  serial_number?: string;
+  last_seen_at?: number;
+}
+
+export interface TerminalState {
+  enabled: boolean;
+  inPlan: boolean;
+  terminal: TerminalSetup | null;
+  readers: TerminalReader[];
 }
 
 export type LocationInput = { name: string; address: string; phone?: string; email?: string; stripeAccountId?: string };

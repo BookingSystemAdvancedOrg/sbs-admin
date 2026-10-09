@@ -9,7 +9,7 @@ who did what (audit rows) and dispatches on routeKey."""
 import json
 from dataclasses import dataclass, field
 
-from . import domains, locations, operators, stripe_connect, tenants, users
+from . import domains, locations, operators, stripe_connect, tenants, terminal, users
 from .core import ApiError, error_body, log, parse_body, respond
 
 ROUTES = {
@@ -33,6 +33,11 @@ ROUTES = {
     "DELETE /platform/tenants/{tenantId}/domains/{domain}": domains.remove_domain,
     "POST /platform/tenants/{tenantId}/stripe/account-link": stripe_connect.account_link,
     "POST /platform/tenants/{tenantId}/stripe/sync": stripe_connect.sync_account,
+    "GET /platform/tenants/{tenantId}/locations/{locationId}/terminal": terminal.get_terminal,
+    "POST /platform/tenants/{tenantId}/locations/{locationId}/terminal": terminal.enable_terminal,
+    "PATCH /platform/tenants/{tenantId}/locations/{locationId}/terminal": terminal.update_terminal,
+    "POST /platform/tenants/{tenantId}/locations/{locationId}/terminal/readers": terminal.register_reader,
+    "DELETE /platform/tenants/{tenantId}/locations/{locationId}/terminal/readers/{readerId}": terminal.remove_reader,
     "GET /platform/operators": operators.list_operators,
     "POST /platform/operators": operators.create_operator,
     "PATCH /platform/operators/{username}": operators.update_operator,
